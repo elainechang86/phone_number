@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台灣手機號碼隨機產生器</title>
+  <meta name="description" content="依照指定電信門號區塊隨機產生手機號碼，並避免重複產生。">
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #202124;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --danger: #dc2626;
+      --soft: #eef2ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
+        "Microsoft JhengHei", sans-serif;
+    }
+    .wrap {
+      width: min(920px, calc(100% - 32px));
+      margin: 48px auto;
+    }
+    .header { margin-bottom: 24px; }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 40px); letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); margin: 0; line-height: 1.7; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.04);
+      margin-bottom: 18px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 14px;
+      align-items: end;
+    }
+    label { display: block; font-weight: 700; margin-bottom: 8px; }
+    input, select, button {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font: inherit;
+    }
+    input, select { padding: 0 12px; background: #fff; }
+    button {
+      padding: 0 18px;
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary { background: #111827; }
+    button.ghost { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    button.danger { background: #fff; color: var(--danger); border: 1px solid #fecaca; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 16px;
+    }
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .result-head h2 { margin: 0; font-size: 20px; }
+    .actions { display: flex; gap: 8px; }
+    .actions button { width: auto; min-height: 40px; }
+    .results {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .number {
+      padding: 11px 13px;
+      background: #f9fafb;
+      border: 1px solid #eef0f2;
+      border-radius: 9px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .04em;
+    }
+    .empty {
+      color: var(--muted);
+      padding: 28px 0;
+      text-align: center;
+    }
+    .notice {
+      background: var(--soft);
+      border-radius: 12px;
+      padding: 13px 15px;
+      line-height: 1.65;
+      color: #3730a3;
+      font-size: 14px;
+    }
+    .history-item { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; background: #fafafa; }
+    .history-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; cursor: pointer; list-style: none; }
+    .history-summary::-webkit-details-marker { display: none; }
+    .history-title { font-weight: 700; }
+    .history-meta { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .history-body { padding: 0 15px 15px; border-top: 1px solid var(--line); }
+    .history-numbers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 10px; padding-top: 12px; max-height: 360px; overflow: auto; }
+    .history-number { padding: 8px 10px; background: #fff; border: 1px solid #eef0f2; border-radius: 8px; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .history-empty { color: var(--muted); text-align: center; padding: 20px 0; }
+    .history-copy { margin-top: 12px; width: auto; min-height: 38px; }
+    .footer {
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      margin-top: 24px;
+      line-height: 1.7;
+    }
+    @media (max-width: 680px) {
+      .wrap { margin: 24px auto; }
+      .card { padding: 18px; border-radius: 14px; }
+      .controls { grid-template-columns: 1fr; }
+      .results, .history-numbers { grid-template-columns: 1fr; }
+      .result-head { align-items: flex-start; flex-direction: column; }
+      .actions { width: 100%; }
+      .actions button { flex: 1; }
+      .stats { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="header">
+      <h1>台灣手機號碼隨機產生器</h1>
+      <p class="subtitle">依照指定的門號區塊隨機產生手機號碼，並自動避免產生過的完整號碼再次出現。</p>
+    </header>
+
+    <section class="card">
+      <div class="controls">
+        <div>
+          <label for="count">產生數量</label>
+          <input id="count" type="number" min="1" max="10000" value="100">
+        </div>
+        <div>
+          <label for="carrier">門號範圍</label>
+          <select id="carrier">
+            <option value="all">全部電信</option>
+            <option value="cht">中華電信</option>
+            <option value="fetnet">遠傳電信</option>
+            <option value="aptg">亞太電信</option>
+            <option value="tstar">台灣之星</option>
+            <option value="twm">台灣大哥大</option>
+          </select>
+        </div>
+        <button id="generate">產生手機號碼</button>
+      </div>
+      <div class="stats">
+        <span id="status">尚未產生資料</span>
+        <span>本機已記錄：<strong id="total">0</strong> 筆</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="result-head">
+        <h2>產生結果</h2>
+        <div class="actions">
+          <button id="copy" class="secondary" disabled>複製全部</button>
+          <button id="csv" class="ghost" disabled>下載 CSV</button>
+          <button id="clear" class="danger">清除歷史</button>
+        </div>
+      </div>
+      <div id="results" class="results">
+        <div class="empty">按下「產生手機號碼」開始。</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="result-head">
+        <h2>生成歷史紀錄</h2>
+        <div class="actions">
+          <button id="exportHistory" class="ghost" disabled>下載歷史 CSV</button>
+          <button id="clearHistory" class="danger">清除歷史</button>
+        </div>
+      </div>
+      <div id="history"></div>
+    </section>
+
+    <div class="notice">
+      生成紀錄與去重資料都儲存在目前瀏覽器的 Local Storage。這是 GitHub Pages 靜態網站，因此不同裝置、不同瀏覽器之間不會共用紀錄。
+    </div>
+
+    <p class="footer">門號區塊依你提供的清單建立。實際門號是否已被電信業者配發，需另行查詢。</p>
+  </main>
+
+<script>
+const PREFIX_GROUPS = {
+  cht: [
+    ["09006","09009"], ["0905"], ["0910"], ["0911"], ["0912"], ["0919"], ["0921"], ["0928"],
+    ["0932"], ["0933"], ["09340","09344"], ["0937"], ["0963"], ["09650","09658"],
+    ["09664","09667"], ["0972"], ["09740","09741"], ["0975"], ["0978"], ["09842","09843"], ["0988"]
+  ],
+  fetnet: [
+    ["09000","09005"], ["0903"], ["0913"], ["0915"], ["0916"], ["0917"], ["0925"], ["0926"], ["0927"],
+    ["0930"], ["09310","09313"], ["0936"], ["0938"], ["09540","09541"], ["0955"],
+    ["09605","09609"], ["09620"], ["09668","09669"], ["09670","09673"], ["09680","09681"],
+    ["09742","09743"], ["0976"], ["0981"], ["09840","09841"], ["0989"]
+  ],
+  aptg: [
+    ["0906"], ["0907"], ["09682","09685"], ["09770","09777"], ["0980"], ["0982"], ["0985"]
+  ],
+  tstar: [
+    ["09020","09026"], ["0908"], ["09686","09689"], ["09712","09718"], ["0973"], ["0986"]
+  ],
+  twm: [
+    ["09010","09014"], ["0909"], ["09140","09142"], ["0918"], ["0920"], ["0922"], ["0923"],
+    ["09240","09241"], ["0929"], ["09314","09319"], ["0935"], ["0939"], ["0952"], ["0953"],
+    ["0956"], ["0958"], ["09600","09604"], ["09610","09615"], ["09660","09663"], ["0970"],
+    ["09710","09711"], ["09744","09745"], ["0979"], ["0983"], ["09844","09845"], ["0987"]
+  ]
+};
+
+const STORAGE_KEY = "tw_mobile_number_generator_v1";
+const HISTORY_KEY = "tw_mobile_number_generator_history_v1";
+let currentResults = [];
+
+function loadUsed() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return new Set(Array.isArray(data) ? data : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveUsed(set) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+}
+
+function expandPrefixGroups(groups) {
+  const result = [];
+  for (const group of groups) {
+    if (group.length === 1) {
+      result.push(group[0]);
+    } else {
+      const start = Number(group[0]);
+      const end = Number(group[1]);
+      for (let n = start; n <= end; n++) result.push(String(n));
+    }
+  }
+  return result;
+}
+
+function getPrefixes(carrier) {
+  const groups = carrier === "all"
+    ? Object.values(PREFIX_GROUPS).flat()
+    : PREFIX_GROUPS[carrier];
+  return expandPrefixGroups(groups);
+}
+
+function randomDigits(length) {
+  let out = "";
+  for (let i = 0; i < length; i++) out += Math.floor(Math.random() * 10);
+  return out;
+}
+
+function loadHistory() { try { const d=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"); return Array.isArray(d)?d:[]; } catch { return []; } }
+function saveHistory(history) { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
+function carrierLabel(carrier) { return ({all:"全部電信",cht:"中華電信",fetnet:"遠傳電信",aptg:"亞太電信",tstar:"台灣之星",twm:"台灣大哥大"})[carrier] || carrier; }
+function addHistory(numbers, carrier) { const h=loadHistory(); h.unshift({id:Date.now(), time:new Date().toLocaleString("zh-TW",{hour12:false}), carrier:carrierLabel(carrier), count:numbers.length, numbers}); saveHistory(h); }
+function escapeHtml(v) { return String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
+function renderHistory() {
+  const c=document.getElementById("history"), h=loadHistory();
+  document.getElementById("exportHistory").disabled=!h.length;
+  if(!h.length){ c.innerHTML='<div class="history-empty">目前還沒有生成歷史紀錄。</div>'; return; }
+  c.innerHTML=h.map((r,i)=>`<details class="history-item" ${i===0?"open":""}><summary class="history-summary"><div><div class="history-title">第 ${h.length-i} 次生成・${r.count.toLocaleString()} 筆</div><div class="history-meta">${escapeHtml(r.time)} ｜ ${escapeHtml(r.carrier)}</div></div><span>⌄</span></summary><div class="history-body"><div class="history-numbers">${r.numbers.map(n=>`<div class="history-number">${formatNumber(n)}</div>`).join("")}</div><button class="history-copy secondary" data-id="${r.id}">複製這次全部號碼</button></div></details>`).join("");
+  c.querySelectorAll(".history-copy").forEach(btn=>btn.addEventListener("click",async()=>{ const r=h.find(x=>String(x.id)===btn.dataset.id); if(!r)return; try{await navigator.clipboard.writeText(r.numbers.map(formatNumber).join("\n")); const o=btn.textContent; btn.textContent="已複製 ✓"; setTimeout(()=>btn.textContent=o,1200);}catch{alert("複製失敗，請手動選取號碼。");} }));
+}
+
+function generateNumbers(count, carrier) {
+  const used = loadUsed();
+  const prefixes = getPrefixes(carrier);
+  const results = [];
+  const maxPossible = prefixes.length * 100000; // 每個前綴最多 5 碼隨機尾碼
+  if (used.size + count > maxPossible) throw new Error("可產生的號碼空間不足。");
+
+  let attempts = 0;
+  const maxAttempts = Math.max(10000, count * 100);
+  while (results.length < count && attempts < maxAttempts) {
+    attempts++;
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const suffixLength = 10 - prefix.length;
+    const number = prefix + randomDigits(suffixLength);
+    if (!used.has(number)) {
+      used.add(number);
+      results.push(number);
+    }
+  }
+
+  if (results.length < count) throw new Error("無法在目前的條件下產生足夠的不重複號碼。");
+  saveUsed(used);
+  return results;
+}
+
+function formatNumber(number) {
+  return number.slice(0, 4) + "-" + number.slice(4, 7) + "-" + number.slice(7);
+}
+
+function render(numbers) {
+  const container = document.getElementById("results");
+  if (!numbers.length) {
+    container.innerHTML = '<div class="empty">尚未產生資料。</div>';
+    return;
+  }
+  container.innerHTML = numbers.map(n => `<div class="number">${formatNumber(n)}</div>`).join("");
+}
+
+function updateStats(message) {
+  document.getElementById("status").textContent = message;
+  document.getElementById("total").textContent = loadUsed().size.toLocaleString();
+  document.getElementById("copy").disabled = currentResults.length === 0;
+  document.getElementById("csv").disabled = currentResults.length === 0;
+}
+
+document.getElementById("generate").addEventListener("click", () => {
+  const count = Number(document.getElementById("count").value);
+  const carrier = document.getElementById("carrier").value;
+
+  if (!Number.isInteger(count) || count < 1 || count > 10000) {
+    alert("請輸入 1～10,000 之間的整數。");
+    return;
+  }
+
+  try {
+    currentResults = generateNumbers(count, carrier);
+    addHistory(currentResults, carrier);
+    render(currentResults);
+    renderHistory();
+    updateStats(`本次產生 ${currentResults.length.toLocaleString()} 筆`);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById("copy").addEventListener("click", async () => {
+  if (!currentResults.length) return;
+  const text = currentResults.map(formatNumber).join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById("copy");
+    const old = btn.textContent;
+    btn.textContent = "已複製 ✓";
+    setTimeout(() => btn.textContent = old, 1200);
+  } catch {
+    alert("複製失敗，請手動選取結果。");
+  }
+});
+
+document.getElementById("csv").addEventListener("click", () => {
+  if (!currentResults.length) return;
+  const csv = "\uFEFF手機號碼\n" + currentResults.map(n => `"${n}"`).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `手機號碼_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("clear").addEventListener("click", () => {
+  if (!confirm("確定要清除所有歷史產生紀錄嗎？清除後，之前產生過的號碼可能再次出現。")) return;
+  localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(HISTORY_KEY);
+  currentResults = []; render([]); renderHistory(); updateStats("歷史紀錄已清除");
+});
+
+document.getElementById("clearHistory").addEventListener("click", () => {
+  if (!confirm("確定要刪除所有生成歷史嗎？刪除後，之前產生過的號碼可能再次出現。")) return;
+  localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(HISTORY_KEY);
+  currentResults = []; render([]); renderHistory(); updateStats("歷史紀錄已清除");
+});
+
+document.getElementById("exportHistory").addEventListener("click", () => {
+  const h=loadHistory(); if(!h.length)return;
+  const rows=[["生成次數","生成時間","電信範圍","手機號碼"]];
+  h.slice().reverse().forEach((r,i)=>r.numbers.forEach(n=>rows.push([i+1,r.time,r.carrier,n])));
+  const csv="\uFEFF"+rows.map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}), url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=`手機號碼生成歷史_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+});
+
+renderHistory();
+updateStats("尚未產生資料");
+</script>
+</body>
+</html>
